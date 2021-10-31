@@ -146,8 +146,8 @@ function init() {
     const ds = Math.exp(-Math.sign(e.deltaY) * scaleStep);
 
     // update the matrix
-    const mat = camera.scale(ds, ox, oy);
-    g.transform.baseVal.getItem(0).setMatrix(mat);
+    const m = camera.scale(ds, ox, oy);
+    g.transform.baseVal.getItem(0).setMatrix(m);
   }
 
   function onPointerMove(e) {
