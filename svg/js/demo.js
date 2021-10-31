@@ -1,60 +1,92 @@
-const SVGNS = 'http://www.w3.org/2000/svg'
+'use strict';
+
+const SVGNS = 'http://www.w3.org/2000/svg';
 
 function loadPiece(url, x, y, z, parent) {
   const img = document.createElementNS(SVGNS, 'image');
-  img.setAttributeNS(null, 'href', url);
-  img.setAttributeNS(null, 'x', x);
-  img.setAttributeNS(null, 'y', y);
+  img.setAttribute('href', url);
+  img.setAttribute('x', x);
+  img.setAttribute('y', y);
   parent.appendChild(img);
   return img;
 }
 
-function matrix(a, b, c, d, tx, ty) {
-  return `matrix(${a}, ${b}, ${c}, ${d}, ${tx}, ${ty})`; 
-}
+const RAD_TO_DEG = 180 / Math.PI;
 
-function toMatrix(s, t, tx, ty) {
-  const s_sin_t = s * Math.sin(t);
-  const s_cos_t = s * Math.cos(t);
+class Camera {
+  constructor() {
+    this.svg = document.createElementNS(SVGNS, 'svg');
+    this.m = this.createSVGMatrix();
+    this.m_inv = null;
+  }
 
-  return matrix(
-    s_cos_t,
-    s_sin_t, 
-    -s_sin_t,
-    s_cos_t,
-    s_cos_t * tx - s_sin_t * ty, 
-    s_sin_t * tx + s_cos_t * ty
-  );
-}
+   createSVGMatrix() {
+     return this.svg.createSVGMatrix();
+   }
 
-function updateMatrix(element, scale, theta, tx, ty) {
-  element.style.transform = toMatrix(scale, theta, tx, ty);
+   scale(ds, ox, oy) {
+     this.m = this.createSVGMatrix()
+                  .translate(ox, oy)
+                  .scale(ds)
+                  .translate(-ox, -oy)
+                  .multiply(this.m);
+    this.m_inv = null;
+    return this.m;
+  }
+
+  translate(dx, dy) {
+    this.m = this.createSVGMatrix()
+                 .translate(dx, dy)
+                 .multiply(this.m);
+    this.m_inv = null;
+    return this.m;
+  }
+
+  rotate(dtheta, ox, oy) {
+    // for some reason, these barbarians use degrees
+    this.m = this.createSVGMatrix()
+                 .translate(ox, oy)
+                 .rotate(dtheta * RAD_TO_DEG)
+                 .translate(-ox, -oy)
+                 .multiply(this.m);
+    this.m_inv = null;
+    return this.m;
+  }
+
+  inverse() {
+    if (this.m_inv === null) {
+      this.m_inv = this.m.inverse();
+    }
+    return this.m_inv;
+  }
 }
 
 function init() {
-  const world = document.getElementById('world');
+//  const world = document.getElementById('world');
+//  const svg = document.createElementNS(SVGNS, 'svg');
+//  const g = document.createElementNS(SVGNS, 'g');
+  const svg = document.querySelector('svg');
+  const g = document.querySelector('svg g');
+
   const ctxmenu = document.getElementById('ctxmenu');
-  const svg = document.createElementNS(SVGNS, 'svg');
-/*
-  svg.setAttributeNS(null, 'width', window.innerWidth);
-  svg.setAttributeNS(null, 'height', window.innerHeight);
-*/
-  svg.setAttributeNS(null, 'viewBox', '0 0 1000 1000');
-  svg.style.overflow = 'visible';
-  world.appendChild(svg);
+//  svg.setAttributeNS(null, 'viewBox', '0 0 1000 1000');
+//  svg.style.overflow = 'visible';
+//  world.appendChild(svg);
+//  svg.appendChild(g);
 
-  let menuVisible = false;
+  const camera = new Camera();
 
-  const scaleStep = 0.25;
-  let scale = 1.0;
-
-  let theta = 0.0;
-
-  let tx = 0.0;
-  let ty = 0.0;  
+  // Initialize the transformation matrix on the group ("g") element
+  g.transform.baseVal.appendItem(
+    g.transform.baseVal.createSVGTransformFromMatrix(
+      svg.createSVGMatrix()
+    )
+  );
 
   const moveStart = {x: 0, y: 0};
   const moveEnd = {x: 0, y: 0};
+
+  const scaleStep = 0.1;
 
   const STATE = {
     NONE: 0,
@@ -65,36 +97,31 @@ function init() {
 
   let state = STATE.NONE;
 
-  const pieces = {};
-
   let dragging = null;
 
-  function onWheel(event) {
-    event.preventDefault();
-    scale *= Math.exp(-Math.sign(event.deltaY) * scaleStep);
-    updateMatrix(svg, scale, theta, tx, ty);
-  }
+  let menuVisible = false;
 
-  function onPointerDown(event) {
-    event.preventDefault();
+  const pieces = {};
 
-    switch (event.button) {
+  function onPointerDown(e) {
+    e.preventDefault();
+
+    switch (e.button) {
     case 0:
-      moveStart.x = event.clientX;
-      moveStart.y = event.clientY;
+      moveStart.x = e.clientX;
+      moveStart.y = e.clientY;
 
-      if (event.ctrlKey) {
+      if (e.ctrlKey) {
         state = STATE.ROTATE;
       }
+      else if (pieces[e.target.id] === true) {
+        state = STATE.DRAG;
+        dragging = e.target;
+        dragging.parentNode.appendChild(dragging);
+        dragging.style.outline = '2px solid black';
+      }
       else {
-        if (pieces[event.target.id] === true) {
-          state = STATE.DRAG;
-          dragging = event.target;
-          dragging.parentNode.appendChild(dragging);
-        }
-        else {
-          state = STATE.PAN;
-        }
+        state = STATE.PAN;
       }
       break;
 
@@ -103,129 +130,181 @@ function init() {
     }
 
     if (state !== STATE.NONE) {
-      world.addEventListener('pointermove', onPointerMove);
-      world.addEventListener('pointerup', onPointerUp);
+      svg.addEventListener('pointermove', onPointerMove);
+      svg.addEventListener('pointerup', onPointerUp);
     }
   }
 
-  function onPointerMove(event) {
-    event.preventDefault();
+  function onWheel(e) {
+    e.preventDefault();
+
+    // the origin around which to zoom
+    const ox = e.offsetX;
+    const oy = e.offsetY;
+
+    // the additional scale factor
+    const ds = Math.exp(-Math.sign(e.deltaY) * scaleStep);
+
+    // update the matrix
+    const mat = camera.scale(ds, ox, oy);
+    g.transform.baseVal.getItem(0).setMatrix(mat);
+  }
+
+  function onPointerMove(e) {
+    e.preventDefault();
 
     switch (state) {
     case STATE.PAN:
       {
-        moveEnd.x = event.clientX;
-        moveEnd.y = event.clientY;
-        
-        const dx = (moveEnd.x - moveStart.x) / scale; 
-        const dy = (moveEnd.y - moveStart.y) / scale; 
+        // determine distance moved
+        moveEnd.x = e.clientX;
+        moveEnd.y = e.clientY;
 
+        const dy = moveEnd.y - moveStart.y;
+        const dx = moveEnd.x - moveStart.x;
+
+        // reset our start point
         moveStart.x = moveEnd.x;
         moveStart.y = moveEnd.y;
 
-        const cosTheta = Math.cos(theta);
-        const sinTheta = Math.sin(theta);
-
-        tx += cosTheta * dx + sinTheta * dy;
-        ty += -sinTheta * dx + cosTheta * dy;
-        updateMatrix(svg, scale, theta, tx, ty);
+        // update the matrix
+        const m = camera.translate(dx, dy);
+        g.transform.baseVal.getItem(0).setMatrix(m);
       }
       break;
 
     case STATE.DRAG:
       {
-        moveEnd.x = event.clientX;
-        moveEnd.y = event.clientY;
+        // determine distance moved
+        moveEnd.x = e.clientX;
+        moveEnd.y = e.clientY;
 
-        const dx = (moveEnd.x - moveStart.x) / scale; 
-        const dy = (moveEnd.y - moveStart.y) / scale; 
+        const ep = svg.createSVGPoint();
+        ep.x = moveEnd.x;
+        ep.y = moveEnd.y;
 
+        const sp = svg.createSVGPoint();
+        sp.x = moveStart.x;
+        sp.y = moveStart.y;
+
+        // reset our start point
         moveStart.x = moveEnd.x;
         moveStart.y = moveEnd.y;
 
+        // switch coordinate systems from camera to world
+        const inv = camera.inverse();
+        const eip = ep.matrixTransform(inv);
+        const sip = sp.matrixTransform(inv);
+
+        // update the position of the piece
+        dragging.x.baseVal.value += (eip.x - sip.x);
+        dragging.y.baseVal.value += (eip.y - sip.y);
+
+/*
+        // determine distance moved
+        moveEnd.x = e.clientX;
+        moveEnd.y = e.clientY;
+
+        const raw_dx = moveEnd.x - moveStart.x;
+        const raw_dy = moveEnd.y - moveStart.y;
+
+        // reset our start point
+        moveStart.x = moveEnd.x;
+        moveStart.y = moveEnd.y;
+
+        // translate movement from camera coords to world coords
+        const theta = Math.atan(camera.m.b / camera.m.a);
         const cosTheta = Math.cos(theta);
         const sinTheta = Math.sin(theta);
 
-        const rdx = cosTheta * dx + sinTheta * dy;
-        const rdy = -sinTheta * dx + cosTheta * dy;
+        const s = camera.m.a / cosTheta;
 
-        dragging.setAttributeNS(null, 'x', parseFloat(dragging.getAttributeNS(null, 'x')) + rdx);
-        dragging.setAttributeNS(null, 'y', parseFloat(dragging.getAttributeNS(null, 'y')) + rdy);
+        let dx = raw_dx / s;
+        let dy = raw_dy / s;
+
+        const cdx = cosTheta * dx + sinTheta * dy;
+        const cdy = -sinTheta * dx + cosTheta * dy;
+
+        // update the position of the piece
+        dragging.x.baseVal.value += cdx;
+        dragging.y.baseVal.value += cdy;
+*/
       }
       break;
 
     case STATE.ROTATE:
       {
-        moveEnd.x = event.clientX;
-        moveEnd.y = event.clientY;
+        // the origin around which to rotate
+        const ox = window.innerWidth/2;
+        const oy = window.innerHeight/2;
 
-        const vx = moveStart.x - (window.innerWidth/2);
-        const vy = moveStart.y - (window.innerHeight/2);
+        // determine change in angle
+        moveEnd.x = e.clientX;
+        moveEnd.y = e.clientY;
+
+        const vx = moveStart.x - ox;
+        const vy = moveStart.y - oy;
         const va = Math.atan2(vy, vx);
 
-        const ux = moveEnd.x - (window.innerWidth/2);
-        const uy = moveEnd.y - (window.innerHeight/2);
+        const ux = moveEnd.x - ox;
+        const uy = moveEnd.y - oy;
         const ua = Math.atan2(uy, ux);
 
-        let dtheta = ua - va;
+        const dtheta = ua - va;
 
+        // reset our start point
         moveStart.x = moveEnd.x;
         moveStart.y = moveEnd.y;
 
-        theta += dtheta;
-
-        theta %= 2.0*Math.PI;
-        if (theta > Math.PI) {
-          theta -= 2.0*Math.PI;
-        }
-        else if (theta < -Math.PI) {
-          theta += 2.0*Math.PI;
-        }
-
-        updateMatrix(svg, scale, theta, tx, ty);
+        // update the matrix
+        const m = camera.rotate(dtheta, ox, oy);
+        g.transform.baseVal.getItem(0).setMatrix(m);
       }
     }
   }
 
-  function onPointerUp(event) {
-		world.removeEventListener('pointermove', onPointerMove);
-		world.removeEventListener('pointerup', onPointerUp);
+  function onPointerUp(e) {
+    e.preventDefault();
+
+    if (dragging !== null) {
+      dragging.style.outline = null;
+      dragging = null;
+    }
+
+		svg.removeEventListener('pointermove', onPointerMove);
+		svg.removeEventListener('pointerup', onPointerUp);
   	state = STATE.NONE;
   }
 
-  function onContextMenu(event) {
-    event.preventDefault();
+  // listen for mouse events
+  svg.addEventListener('wheel', onWheel);
+  svg.addEventListener('pointerdown', onPointerDown);
+
+
+
+
+  function onContextMenu(e) {
+    e.preventDefault();
     ctxmenu.style.left = event.pageX + 'px';
     ctxmenu.style.top = event.pageY + 'px';
     ctxmenu.style.display = 'block';
     menuVisible = true;
   }
 
-  function onClick(event) {
+  function onClick(e) {
+    e.preventDefault();
     if (menuVisible) {
       ctxmenu.style.display = 'none';
       menuVisible = false;
     }
   }
 
-  world.addEventListener('wheel', onWheel);
-  world.addEventListener('pointerdown', onPointerDown);
+  // suppress the browser context menu
+//  window.addEventListener('contextmenu', e => e.preventDefault());
+  window.addEventListener('contextmenu', onContextMenu)
+  window.addEventListener('click', onClick);
+//  ctxmenu.addEventListener('click', onClick);
 
-  world.addEventListener('contextmenu', onContextMenu);
-  world.addEventListener('click', onClick);
-  ctxmenu.addEventListener('click', onClick);
-
-/*
-  function onMouseOver(event) {
-    event.preventDefault();
-    event.target.style.outline = "1px solid black";
-  }
-
-  function onMouseOut(event) {
-    event.preventDefault();
-    event.target.style.outline = null;
-  }
-*/
 
   function loadPieces(names, z, parent) {
     names.map(name => {
@@ -234,15 +313,10 @@ function init() {
         window.innerWidth * Math.random(),
         window.innerHeight * Math.random(),
         ++z,
-        parent 
+        parent
       );
 
       piece.id = z;
-
-/*
-      piece.addEventListener('mouseover', onMouseOver);
-      piece.addEventListener('mouseout', onMouseOut);
-*/
 
       pieces[piece.id] = true;
     });
@@ -260,12 +334,12 @@ function init() {
     loadMap(lines[0], parent);
 
     loadPieces(lines.slice(1), 1, parent);
-//    for (let z = 1; z < 5000; ) { 
+//    for (let z = 1; z < 5000; ) {
 //      z = loadPieces(lines.slice(1), z, parent);
 //    }
   }
 
-  loadGame(svg);
+  loadGame(g);
 }
 
 init();

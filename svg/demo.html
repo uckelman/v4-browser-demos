@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<meta charset="utf-8">
-		<title>SVG test</title>
-		<style>
-			body {
+  <head>
+    <meta charset="utf-8">
+    <title>SVG test</title>
+    <style>
+      body {
         margin: 0;
         background: #000000;
         image-rendering: high-quality;
@@ -37,10 +37,14 @@
         background: #CCCCCC;
       }
 
-		</style>
-	</head>
-	<body>
-    <div id="world"></div>
+    </style>
+  </head>
+  <body>
+    <svg id="world" width="1000" height="1000">
+      <g>
+      </g>
+    </svg>
+
     <div id="ctxmenu">
       <ul>
         <li>Item 1</li>
@@ -50,6 +54,7 @@
         <li>Item 5</li>
       </ul>
     </div>
-		<script type="module" src="js/demo.js"></script>
-	</body>
+
+    <script type="module" src="js/demo.js"></script>
+  </body>
 </html>
