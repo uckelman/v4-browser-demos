@@ -1,42 +1,46 @@
 import { Camera } from './camera.js';
 
-const SVGNS = 'http://www.w3.org/2000/svg';
+function matrix(a, b, c, d, e, f) {
+  return `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`; 
+}
 
 function createPieceElement(id, img_url, x, y) {
-  const img = document.createElementNS(SVGNS, 'image');
-  img.id = id;
-  img.setAttribute('href', img_url);
-  img.setAttribute('x', x);
-  img.setAttribute('y', y);
-  return img;
+  const img = document.createElement('img');
+  img.setAttribute('src', img_url);
+  
+  const div = document.createElement('div');
+  div.id = id;
+  div.style.left = `${x}px`;
+  div.style.top = `${y}px`;
+  div.appendChild(img);
+
+  return div;  
 }
 
 export class View {
   constructor(game) {
     this.game = game;
 
-    this.svg = document.querySelector('svg');
-    this.g = document.querySelector('svg g');
+    this.world = document.getElementById('world');
+
+    this.g = document.querySelector('div div');
+    this.g.style.position = 'relative';
 
     this.addPiece(game['boards'][0]);
     this.game['pieces'].forEach(p => this.addPiece(p));
 
     this.camera = new Camera();
-
+  
     // Initialize the transformation matrix on the group ("g") element
-    this.g.transform.baseVal.appendItem(
-      this.g.transform.baseVal.createSVGTransformFromMatrix(
-        new DOMMatrix()
-      )
-    );
+    this.g.style.transform = matrix(1, 0, 0, 1, 0, 0);
   }
 
   addEventListener(type, listener) {
-    this.svg.addEventListener(type, listener);
+    this.world.addEventListener(type, listener);
   }
-
+ 
   removeEventListener(type, listener) {
-    this.svg.addEventListener(type, listener);
+    this.world.removeEventListener(type, listener);
   }
 
   addPiece(piece) {
@@ -58,10 +62,10 @@ export class View {
 
     for (const prop of updated) {
       if (prop == 'x') {
-        pe.x.baseVal.value = piece['x'];
+        pe.style.left = `${piece['x']}px`;
       }
       else if (prop == 'y') {
-        pe.y.baseVal.value = piece['y'];
+        pe.style.top = `${piece['y']}px`;
       }
     }
   }
@@ -71,33 +75,33 @@ export class View {
     pe.parentNode.appendChild(pe);
     pe.style.outline = '2px solid black';
   }
-
+  
   deselectPiece(piece) {
     const pe = document.getElementById(piece['id']);
     pe.style.outline = null;
   }
 
   pieceIdFor(target) {
-    return target.id;
+    return target.parentElement.id;
   }
 
   scaleCenterFor(e) {
-    return [e.offsetX, e.offsetY];
+    return [e.clientX, e.clientY];
   }
 
   translate(dx, dy) {
     const m = this.camera.translate(dx, dy);
-    this.g.transform.baseVal.getItem(0).setMatrix(m);
+    this.g.style.transform = matrix(m.a, m.b, m.c, m.d, m.e, m.f);
   }
 
   scale(ds, ox, oy) {
     const m = this.camera.scale(ds, ox, oy);
-    this.g.transform.baseVal.getItem(0).setMatrix(m);
+    this.g.style.transform = matrix(m.a, m.b, m.c, m.d, m.e, m.f);
   }
 
   rotate(dtheta, ox, oy) {
     const m = this.camera.rotate(dtheta, ox, oy);
-    this.g.transform.baseVal.getItem(0).setMatrix(m);
+    this.g.style.transform = matrix(m.a, m.b, m.c, m.d, m.e, m.f);
   }
 
   clientToView(p) {
