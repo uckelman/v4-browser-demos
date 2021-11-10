@@ -31,15 +31,18 @@ export class Controller {
         moveStart.y = e.clientY;
 
         if (e.ctrlKey) {
+          // begin rotating the view
           state = STATE.ROTATE;
         }
         else {
           dragging = pieces[e.target.id] || null;
           if (dragging !== null) {
+            // begin dragging a piece
             state = STATE.DRAG;
             view.selectPiece(dragging);
           }
           else {
+            // begin panning the view
             state = STATE.PAN;
           }
         }
