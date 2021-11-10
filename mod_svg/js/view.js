@@ -122,7 +122,7 @@ class Camera {
   }
 
   rotate(dtheta, ox, oy) {
-    // for some reason, these barbarians use degrees
+    // NB: these barbarians use degrees
     this.m = new DOMMatrix()
                  .translate(ox, oy)
                  .rotate(dtheta * RAD_TO_DEG)
