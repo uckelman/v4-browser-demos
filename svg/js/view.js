@@ -77,8 +77,8 @@ export class View {
     pe.style.outline = null;
   }
 
-  pieceIdFor(target) {
-    return target.id;
+  pieceIdFor(e) {
+    return e.target.id;
   }
 
   scaleCenterFor(e) {

@@ -35,7 +35,7 @@ export class Controller {
           state = STATE.ROTATE;
         }
         else {
-          dragging = pieces[view.pieceIdFor(e.target)] || null;
+          dragging = pieces[view.pieceIdFor(e)] || null;
           if (dragging !== null) {
             // begin dragging a piece
             state = STATE.DRAG;

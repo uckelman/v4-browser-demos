@@ -81,8 +81,8 @@ export class View {
     pe.style.outline = null;
   }
 
-  pieceIdFor(target) {
-    return target.parentElement.id;
+  pieceIdFor(e) {
+    return e.target.parentElement.id;
   }
 
   scaleCenterFor(e) {
