@@ -61,14 +61,11 @@ export class Controller {
     function onWheel(e) {
       e.preventDefault();
 
-      // the origin around which to zoom
-      const [ox, oy] = view.scaleCenterFor(e);
-
       // the additional scale factor
       const ds = Math.exp(-Math.sign(e.deltaY) * scaleStep);
 
       // update the view
-      view.scale(ds, ox, oy);
+      view.scale(ds, e.clientX, e.clientY);
     }
 
     function onPointerMove(e) {
@@ -117,7 +114,7 @@ export class Controller {
 
       case STATE.ROTATE:
         {
-          // the origin around which to rotate
+          // the origin around which to rotate (window center)
           const ox = window.innerWidth/2;
           const oy = window.innerHeight/2;
 

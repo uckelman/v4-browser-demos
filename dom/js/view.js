@@ -85,10 +85,6 @@ export class View {
     return e.target.parentElement.id;
   }
 
-  scaleCenterFor(e) {
-    return [e.clientX, e.clientY];
-  }
-
   translate(dx, dy) {
     const m = this.camera.translate(dx, dy);
     this.g.style.transform = matrix(m.a, m.b, m.c, m.d, m.e, m.f);

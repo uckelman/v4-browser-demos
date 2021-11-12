@@ -186,10 +186,6 @@ export class View {
     return null;
   }
 
-  scaleCenterFor(e) {
-    return [e.offsetX, e.offsetY];
-  }
-
   translate(dx, dy) {
     const tx = -dx * (this.camera.right - this.camera.left) / this.camera.zoom / this.renderer.domElement.clientWidth;
     const ty = dy * (this.camera.top - this.camera.bottom ) / this.camera.zoom / this.renderer.domElement.clientHeight;

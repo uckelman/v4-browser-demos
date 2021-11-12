@@ -81,10 +81,6 @@ export class View {
     return e.target.id;
   }
 
-  scaleCenterFor(e) {
-    return [e.offsetX, e.offsetY];
-  }
-
   translate(dx, dy) {
     const m = this.camera.translate(dx, dy);
     this.g.transform.baseVal.getItem(0).setMatrix(m);
