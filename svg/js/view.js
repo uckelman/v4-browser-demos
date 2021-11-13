@@ -96,7 +96,7 @@ export class View {
     this.g.transform.baseVal.getItem(0).setMatrix(m);
   }
 
-  clientToView(p) {
-    return this.camera.clientToView(p);
+  clientToWorld(p) {
+    return this.camera.clientToWorld(p);
   }
 }

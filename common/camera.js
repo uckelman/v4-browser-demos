@@ -35,10 +35,12 @@ export class Camera {
     return this.m;
   }
 
-  clientToView(p) {
+  clientToWorld(p) {
     if (this.m_inv === null) {
       this.m_inv = this.m.inverse();
     }
     return p.matrixTransform(this.m_inv);
   }
+
+// FIXME: also have worldToClient?
 }

@@ -96,9 +96,9 @@ export class Controller {
           moveEnd.x = e.clientX;
           moveEnd.y = e.clientY;
 
-          // switch coordinate systems from camera to world
-          const sp = view.clientToView(moveStart);
-          const ep = view.clientToView(moveEnd);
+          // switch coordinate systems from client to world
+          const sp = view.clientToWorld(moveStart);
+          const ep = view.clientToWorld(moveEnd);
 
           // update the position of the piece
           dragging['x'] += ep.x - sp.x;

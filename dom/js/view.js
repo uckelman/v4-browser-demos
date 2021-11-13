@@ -100,7 +100,7 @@ export class View {
     this.g.style.transform = matrix(m.a, m.b, m.c, m.d, m.e, m.f);
   }
 
-  clientToView(p) {
-    return this.camera.clientToView(p);
+  clientToWorld(p) {
+    return this.camera.clientToWorld(p);
   }
 }
