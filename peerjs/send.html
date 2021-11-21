@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>PeerJS send</title>
+		<style>
+			body { margin: 0; }
+		</style>
+	</head>
+	<body>
+    <div>
+      <input type="text" id="receiver-id">
+      <button id="connect-button">Connect</button>
+      <span id="status"></span>
+    </div>
+    <input type="text" id="sendMessageBox" placeholder="Enter a message..." autofocus="true" />
+    <div class="message" id="message"></div>
+		<script src="js/peerjs.min.js"></script>
+		<script type="module" src="js/send.js"></script>
+	</body>
+</html>
