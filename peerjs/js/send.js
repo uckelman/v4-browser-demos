@@ -1,54 +1,49 @@
 import { Connection } from './conn.js';
+import { Console } from './console.js';
 
 function init() {
-  const status = document.getElementById("status");
-  const recvIdInput = document.getElementById("receiver-id");
-  const connectButton = document.getElementById("connect-button");
-  const sendMessageBox = document.getElementById("sendMessageBox");
-  const message = document.getElementById("message");
+  const msgbox = new Console();
+  const postMessage = msg => msgbox.append(msg);
+
+  postMessage("Not connected");
+
+  const params = new URLSearchParams(window.location.search);
+  const other_id = params.get('id');
 
   const conn = new Connection();
 
+  conn.on('peerid', id => {
+    postMessage("We are " + id);
+    postMessage("Connecting to " + other_id);
+    conn.connect(other_id);
+  });
+
+  conn.on('open', peer_id => {
+    postMessage("Connected to " + peer_id);
+  });
+
+  conn.on('recv', data => {
+    postMessage("O: " + data);
+  });
+
+  conn.on('close', () => {
+    postMessage("Connection closed.");
+  });
+
   conn.on('disconnected', () => {
-    status.innerHTML = "Connection lost. Please reconnect";
+    postMessage("Connection lost. Please reconnect.");
   });
 
   conn.on('destroyed', () => {
-    status.innerHTML = "Connection destroyed. Please refresh";
+    postMessage("Connection destroyed. Please refresh.");
   });
 
   conn.on('error', err => {
-    alert('' + err);
+    postMessage("Error: " + err);
   });
 
-  // Send on enter in message box
-  sendMessageBox.addEventListener('keypress', e => {
-    const event = e || window.event;
-    const char = event.which || event.keyCode;
-    if (char == '13') {
-      const msg = sendMessageBox.value;
-      sendMessageBox.value = "";
-      conn.send(msg);
-      message.innerHTML = "<br><span>S: " + msg + "</span>" + message.innerHTML;
-    }
-  });
-
-  // Start peer connection on click
-  connectButton.addEventListener('click', () => {
-    conn.connect(recvIdInput.value);
-
-    conn.on('open', peer_id => {
-      status.innerHTML = "Connected to: " + peer_id;
-    });
-
-    // Handle incoming data (messages only since this is the signal sender)
-    conn.on('recv', data => {
-      message.innerHTML = "<br><span>O: " + data + "</span>" + message.innerHTML;
-    });
-
-    conn.on('close', () => {
-      status.innerHTML = "Connection closed";
-    });
+  msgbox.on('message', msg => {
+    conn.send(msg);
   });
 
   conn.start();

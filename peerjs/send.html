@@ -5,16 +5,29 @@
 		<title>PeerJS send</title>
 		<style>
 			body { margin: 0; }
+
+      #console {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+      }
+
+      #messages {
+        width: 100%;
+      }
+
+      #messageInput {
+        width: 100%;
+      }
+
 		</style>
 	</head>
 	<body>
-    <div>
-      <input type="text" id="receiver-id">
-      <button id="connect-button">Connect</button>
-      <span id="status"></span>
+    <div id="console">
+      <textarea id="messages" rows="5" readonly></textarea>
+      <input type="text" id="messageInput" autofocus="true" />
     </div>
-    <input type="text" id="sendMessageBox" placeholder="Enter a message..." autofocus="true" />
-    <div class="message" id="message"></div>
+
 		<script src="js/peerjs.min.js"></script>
 		<script type="module" src="js/send.js"></script>
 	</body>

@@ -1,52 +1,47 @@
 import { Connection } from './conn.js';
+import { Console } from './console.js';
 
 function init() {
-  const recvId = document.getElementById("receiver-id");
-  const status = document.getElementById("status");
-  const message = document.getElementById("message");
-  const sendMessageBox = document.getElementById("sendMessageBox");
+  const msgbox = new Console();
+  const postMessage = msg => msgbox.append(msg);
+
+  postMessage("Not connected");
 
   const conn = new Connection();
 
+  conn.on('log', msg => postMessage(msg));
+
   conn.on('peerid', id => {
-    recvId.innerHTML = id;
-    status.innerHTML = "Awaiting connection...";
+    postMessage("We are " + id);
+    postMessage("Awaiting connection...");
   });
 
   conn.on('connected', () => {
-    status.innerHTML = "Connected";
+    postMessage("Connected");
   });
 
   conn.on('recv', data => {
-    message.innerHTML = "<br><span>O: " + data + "</span>" + message.innerHTML;
+    postMessage("O: " + data);
   });
 
   conn.on('close', () => {
-    status.innerHTML = "Connection reset<br>Awaiting connection...";
+    postMessage("Connection reset. Awaiting connection...");
   });
 
   conn.on('disconnected', () => {
-    status.innerHTML = "Connection lost. Please reconnect";
+    postMessage("Connection lost. Please reconnect.");
   });
 
   conn.on('destroyed', () => {
-    status.innerHTML = "Connection destroyed. Please refresh";
+    postMessage("Connection destroyed. Please refresh.");
   });
 
   conn.on('error', err => {
-    alert('' + err);
+    postMesasge("Error: " + err);
   });
 
-  // Send on enter in message box
-  sendMessageBox.addEventListener('keypress', e => {
-    const event = e || window.event;
-    const char = event.which || event.keyCode;
-    if (char == '13') {
-      const msg = sendMessageBox.value;
-      sendMessageBox.value = "";
-      conn.send(msg);
-      message.innerHTML = "<br><span>S: " + msg  + "</span>" + message.innerHTML;
-    }
+  msgbox.on('message', msg => {
+    conn.send(msg);
   });
 
   conn.start();
