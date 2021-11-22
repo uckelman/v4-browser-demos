@@ -1,0 +1,48 @@
+body {
+  margin: 0;
+  background: #000000;
+  image-rendering: high-quality;
+  overflow: hidden;
+}
+
+#world {
+ overflow: visible;
+}
+
+#ctxmenu {
+  display: none;
+  background: #FFFFFF;
+  color: #000000;
+  position: absolute;
+  font-family: sans-serif;
+}
+
+#ctxmenu ul {
+  list-style: none;
+  padding: 5px 5px;
+  margin: 0;
+}
+
+#ctxmenu ul li {
+  padding: 2px;
+}
+
+#ctxmenu ul li:hover {
+  background: #CCCCCC;
+}
+
+#console {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  opacity: 0.9;
+}
+
+#messages {
+  width: 100%;
+  resize: vertical;
+}
+
+#messageInput {
+  width: 100%;
+}
