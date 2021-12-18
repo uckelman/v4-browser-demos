@@ -2,12 +2,15 @@ const RAD_TO_DEG = 180 / Math.PI;
 
 export class Camera {
   constructor() {
-    this.m = new DOMMatrix();
+    // TODO: remove once everything supports DOMMatrix
+    this.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+
+    this.m = this.svg.createSVGMatrix();
     this.m_inv = null;
   }
 
    scale(ds, ox, oy) {
-     this.m = new DOMMatrix()
+     this.m = this.svg.createSVGMatrix()
                   .translate(ox, oy)
                   .scale(ds)
                   .translate(-ox, -oy)
@@ -17,7 +20,7 @@ export class Camera {
   }
 
   translate(dx, dy) {
-    this.m = new DOMMatrix()
+    this.m = this.svg.createSVGMatrix()
                  .translate(dx, dy)
                  .multiply(this.m);
     this.m_inv = null;
@@ -26,7 +29,7 @@ export class Camera {
 
   rotate(dtheta, ox, oy) {
     // NB: these barbarians use degrees
-    this.m = new DOMMatrix()
+    this.m = this.svg.createSVGMatrix()
                  .translate(ox, oy)
                  .rotate(dtheta * RAD_TO_DEG)
                  .translate(-ox, -oy)

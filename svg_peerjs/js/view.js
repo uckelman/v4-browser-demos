@@ -26,7 +26,8 @@ export class View {
     // Initialize the transformation matrix on the group ("g") element
     this.g.transform.baseVal.appendItem(
       this.g.transform.baseVal.createSVGTransformFromMatrix(
-        new DOMMatrix()
+        // TODO: Switch to DOMMatrix
+        this.svg.createSVGMatrix()
       )
     );
 
