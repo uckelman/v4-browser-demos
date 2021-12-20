@@ -1,18 +1,11 @@
 import { ListenerSupport } from './listener.js';
 
-function appendToMessageBox(textarea, msg) {
-  textarea.value += msg + '\n';
-  // ensure the textarea stays scrolled to the bottom
-  textarea.scrollTop = textarea.scrollHeight;
-}
-
-export class Console {
+export class ConsoleController {
   constructor(name) {
     this.listeners = {};
 
     this.name = name;
 
-    this.messages = document.getElementById("messages");
     this.messageInput = document.getElementById("messageInput");
 
     const scope = this;
@@ -22,19 +15,30 @@ export class Console {
       if (e.key === 'Enter') {
         const msg = scope.messageInput.value;
         scope.messageInput.value = "";
-        scope.append(scope.name + ": " + msg);
         scope.notify('message', {
           type: 'message',
           name: scope.name,
-          text: msg
+          text: msg 
         });
       }
     });
   }
-
-  append(msg) {
-    appendToMessageBox(this.messages, msg);
-  }
 }
 
-Object.assign(Console.prototype, ListenerSupport);
+Object.assign(ConsoleController.prototype, ListenerSupport);
+
+function appendToTextarea(textarea, msg) {
+  textarea.value += msg + '\n';
+  // ensure the textarea stays scrolled to the bottom
+  textarea.scrollTop = textarea.scrollHeight;
+}
+
+export class ConsoleView {
+  constructor() {
+    this.messages = document.getElementById("messages");
+  }
+
+  append(text) {
+    appendToTextarea(this.messages, text);
+  }
+}

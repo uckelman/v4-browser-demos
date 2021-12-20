@@ -3,7 +3,7 @@ import { View } from './view.js';
 import { Controller } from './controller.js';
 
 import { Connection } from './connection.js';
-import { Console } from './console.js';
+import { ConsoleController, ConsoleView } from './console.js';
 
 function makeMVC(state) {
   const model = new Model(state);
@@ -51,8 +51,9 @@ async function init() {
   const remote_id = params.get('id');
   const name = params.get('name');
 
-  const msgbox = new Console(name);
-  const postMessage = msg => msgbox.append(msg);
+  const consoleCtrl = new ConsoleController(name);
+  const consoleView = new ConsoleView(name);
+  const postMessage = msg => consoleView.append(msg);
 
   postMessage("Not connected");
 
@@ -152,8 +153,12 @@ async function init() {
     });
   }
 
-  msgbox.on('message', msg => {
-    conn.send_all(msg);
+  consoleCtrl.on('message', cmd => {
+    conn.send_all(cmd);
+  });
+
+  consoleCtrl.on('message', cmd => {
+    consoleView.append(cmd.name + ": " + cmd.text);
   });
 }
 
