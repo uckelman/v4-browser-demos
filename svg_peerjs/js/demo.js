@@ -86,17 +86,17 @@ async function init() {
   let controller = null; 
 
   const message_handlers = {
-    message: data => postMessage(data.name + ": " + data.text),
-    move: data => model.apply(new MoveCommand(data)),
-    sync: data => {
-      postMessage("Synchronizing with peer " + data.src);
-      [model, view, controller] = makeMVC(data.state);
+    message: cmd => postMessage(cmd.name + ": " + cmd.text),
+    move: cmd => model.apply(new MoveCommand(cmd)),
+    sync: cmd => {
+      postMessage("Synchronizing with peer " + cmd.src);
+      [model, view, controller] = makeMVC(cmd.state);
       setupMVC(model, view, controller, conn, name);
     },
-    lock: data => controller.lock(data.pid),
-    unlock: data => controller.unlock(data.pid),
-    mpos: data => view.setPointerLocation(data.name, new DOMPoint(data.x, data.y)),
-    mleave: data => view.hidePointer(data.name)
+    lock: cmd => controller.lock(cmd.pid),
+    unlock: cmd => controller.unlock(cmd.pid),
+    mpos: cmd => view.setPointerLocation(cmd.name, new DOMPoint(cmd.x, cmd.y)),
+    mleave: cmd => view.hidePointer(cmd.name)
   };
 
   if (remote_id) {
@@ -107,8 +107,8 @@ async function init() {
       conn.connect(remote_id);
     });
 
-    conn.on('recv', data => {
-      (message_handlers[data.type] || console.log)(data);
+    conn.on('recv', cmd => {
+      (message_handlers[cmd.type] || console.log)(cmd);
     });
 
     conn.start();
@@ -147,9 +147,9 @@ async function init() {
       conn.send({ type: 'sync', state: state }, id);
     });
 
-    conn.on('recv', data => {
-      conn.send_all(data);
-      (message_handlers[data.type] || console.log)(data);
+    conn.on('recv', cmd => {
+      conn.send_all(cmd);
+      (message_handlers[cmd.type] || console.log)(cmd);
     });
   }
 
