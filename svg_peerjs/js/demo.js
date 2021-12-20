@@ -2,93 +2,122 @@ import { loadGame, Model, MoveCommand } from './model.js';
 import { View } from './view.js';
 import { Controller } from './controller.js';
 
-import { Connection } from './conn.js';
+import { Connection } from './connection.js';
 import { Console } from './console.js';
 
+function makeMVC(state) {
+  const model = new Model(state);
+  const view = new View(model);
+  const controller = new Controller(model, view);
+  return [model, view, controller];
+}
+
+function setupMVC(model, view, controller, conn, name) {
+  model.on('move', cmd => {
+    if (cmd.src === undefined) {
+      conn.send_all(cmd);
+    }
+  });
+
+  model.on('move', cmd => {
+    view.updatePiece(cmd.pid, ['x', 'y', 'z']);
+  });
+
+  controller.on('lock', pid => {
+    conn.send_all({ type: 'lock', pid: pid });
+  }); 
+
+  controller.on('unlock', pid => {
+    conn.send_all({ type: 'unlock', pid: pid });
+  });
+
+  controller.on('mpos', pos => {
+    conn.send_all({ type: 'mpos', name: name, x: pos.x, y: pos.y });
+  });
+
+/*
+  controller.on('menter', pos => {
+    conn.send_all({ type: 'menter' });
+  });
+*/
+
+  controller.on('mleave', pos => {
+    conn.send_all({ type: 'mleave', name: name });
+  });
+}
+
 async function init() {
-  const msgbox = new Console();
+  const params = new URLSearchParams(window.location.search);
+  const remote_id = params.get('id');
+  const name = params.get('name');
+
+  const msgbox = new Console(name);
   const postMessage = msg => msgbox.append(msg);
 
   postMessage("Not connected");
-
-  const params = new URLSearchParams(window.location.search);
-  const other_id = params.get('id');
 
   const conn = new Connection();
 
   conn.on('log', msg => postMessage(msg));
 
-  conn.on('disconnected', () => {
+  conn.on('p_disconnected', () => {
     postMessage("Connection lost. Please reconnect.");
   });
 
-  conn.on('destroyed', () => {
-    postMessage("Connection destroyed. Please refresh.");
+  conn.on('p_closed', () => {
+    postMessage("Connection closed. Please refresh.");
   });
 
   conn.on('error', err => {
-    postMesasge("Error: " + err);
+    postMessage("Error: " + err);
+  });
+
+  conn.on('connected', id => {
+    postMessage("Connected to " + id);
+  });
+
+  conn.on('close', id => {
+    postMessage('Connection to ' + id + ' closed.');
   });
 
   let model = null;
   let view = null; 
   let controller = null; 
 
-  if (other_id) {
-    conn.on('peerid', id => {
-      postMessage("We are " + id);
-      postMessage("Connecting to " + other_id);
-      conn.connect(other_id);
-    });
+  const message_handlers = {
+    message: data => postMessage(data.name + ": " + data.text),
+    move: data => model.apply(new MoveCommand(data)),
+    sync: data => {
+      postMessage("Synchronizing with peer " + data.src);
+      [model, view, controller] = makeMVC(data.state);
+      setupMVC(model, view, controller, conn, name);
+    },
+    lock: data => controller.lock(data.pid),
+    unlock: data => controller.unlock(data.pid),
+    mpos: data => view.setPointerLocation(data.name, new DOMPoint(data.x, data.y)),
+    mleave: data => view.hidePointer(data.name)
+  };
 
-    conn.on('close', () => {
-      postMessage("Connection closed.");
+  if (remote_id) {
+    // client: connect to server 
+    conn.on('p_open', id => {
+      postMessage("We are " + id);
+      postMessage("Connecting to " + remote_id);
+      conn.connect(remote_id);
     });
 
     conn.on('recv', data => {
-      switch (data.type) {
-      case 'message':
-        postMessage("Them: " + data.text);
-        break;
-
-      case 'move':
-        model.apply(new MoveCommand(data));
-        break; 
-
-      case 'sync':
-        postMessage("Synchronizing with peer");
-        model = new Model(data.state);
-        view = new View(model);
-        controller = new Controller(model, view);
-    
-        model.on('move', cmd => {
-          if (cmd.local) {
-            cmd.local = false;
-            conn.send(cmd);
-          }
-        });
-
-        break;
-
-      default:
-        console.log(data);
-      }
+      (message_handlers[data.type] || console.log)(data);
     });
 
     conn.start();
   }
   else {
-    conn.on('peerid', id => {
+    // server: listen for connection
+    conn.on('p_open', id => {
       postMessage("We are " + id);
+      postMessage(`Connect to ${window.location.protocol}//${window.location.host}${window.location.pathname}?id=${id}`);
       postMessage("Awaiting connection...");
-    });
-
-    conn.on('close', () => {
-      postMessage("Connection reset. Awaiting connection...");
-    });
-
-    conn.on('connected', () => {
-      postMessage("Connected");
     });
 
     conn.start();
@@ -103,46 +132,28 @@ async function init() {
       p['z'] = 0;
     });
 
-    model = new Model(game);
-    view = new View(model);
-    controller = new Controller(model, view);
+    [model, view, controller] = makeMVC(game);
+    setupMVC(model, view, controller, conn, name);
 
-    conn.on('open', _ => {
-      postMessage("Sending state");
+    conn.on('open', id => {
+      postMessage("Sending state to " + id);
 
       const state = {
         boards: model.data.boards,
         pieces: Array.from(model.data.pieces.values())
       };
 
-      conn.send({ type: 'sync', state: state });
+      conn.send({ type: 'sync', state: state }, id);
     });
 
     conn.on('recv', data => {
-      switch (data.type) {
-      case 'message':
-        postMessage("Them: " + data.text);
-        break;
-
-      case 'move':
-        model.apply(new MoveCommand(data));
-        break;
-
-      default:
-        console.log(data);
-      }
+      conn.send_all(data);
+      (message_handlers[data.type] || console.log)(data);
     });
   }
 
   msgbox.on('message', msg => {
-    conn.send(msg);
-  });
-
-  model.on('move', cmd => {
-    if (cmd.local) {
-      cmd.local = false;
-      conn.send(cmd);
-    }
+    conn.send_all(msg);
   });
 }
 

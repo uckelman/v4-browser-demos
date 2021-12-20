@@ -34,7 +34,6 @@ export class MoveCommand {
   static fromPiece(p, nx, ny, nz) {
     return new MoveCommand({
       type: 'move',
-      local: true,
       pid: p.id,
       prev_x: p.x,
       prev_y: p.y,

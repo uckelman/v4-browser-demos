@@ -7,8 +7,10 @@ function appendToMessageBox(textarea, msg) {
 }
 
 export class Console {
-  constructor() {
+  constructor(name) {
     this.listeners = {};
+
+    this.name = name;
 
     this.messages = document.getElementById("messages");
     this.messageInput = document.getElementById("messageInput");
@@ -20,8 +22,12 @@ export class Console {
       if (e.key === 'Enter') {
         const msg = scope.messageInput.value;
         scope.messageInput.value = "";
-        scope.append("Us: " + msg);
-        scope.notify('message', {type: 'message', text: msg});
+        scope.append(scope.name + ": " + msg);
+        scope.notify('message', {
+          type: 'message',
+          name: scope.name,
+          text: msg
+        });
       }
     });
   }

@@ -1,3 +1,4 @@
+import { ListenerSupport } from './listener.js';
 import { MoveCommand } from './model.js';
 
 export class Controller {
@@ -5,8 +6,12 @@ export class Controller {
     this.model = model;
     this.view = view;
 
+    this.listeners = {};
+
     const moveStart = new DOMPoint();
     const moveEnd = new DOMPoint();
+
+    const mousePos = new DOMPoint();
 
     const scaleStep = 0.1;
 
@@ -20,6 +25,10 @@ export class Controller {
     let state = STATE.NONE;
 
     let dragging = null;
+
+    this.locked = new Set();
+
+    const scope = this;
 
     function onPointerDown(e) {
       e.preventDefault();
@@ -36,9 +45,17 @@ export class Controller {
         else {
           dragging = model.data.pieces.get(view.pieceIdFor(e)) || null;
           if (dragging !== null) {
-            // begin dragging a piece
-            state = STATE.DRAG;
-            view.selectPiece(dragging);
+            if (scope.locked.has(dragging)) {
+              state = STATE.NONE;
+            }
+            else {
+              // begin dragging a piece
+              state = STATE.DRAG;
+              view.selectPiece(dragging);
+
+              // lock dragging piece
+              scope.notify('lock', dragging.id);
+            }
           }
           else {
             // begin panning the view
@@ -52,7 +69,6 @@ export class Controller {
       }
 
       if (state !== STATE.NONE) {
-        view.addEventListener('pointermove', onPointerMove);
         view.addEventListener('pointerup', onPointerUp);
       }
     }
@@ -146,6 +162,10 @@ export class Controller {
           moveStart.y = moveEnd.y;
         }
       }
+
+      mousePos.x = e.clientX;
+      mousePos.y = e.clientY;
+      scope.notify('mpos', view.clientToWorld(mousePos));
     }
 
     function onPointerUp(e) {
@@ -153,15 +173,63 @@ export class Controller {
 
       if (dragging !== null) {
         view.deselectPiece(dragging);
+
+        // notify other clients of unlock
+        scope.notify('unlock', dragging.id);
+
+        dragging = null;
       }
 
-      view.removeEventListener('pointermove', onPointerMove);
       view.removeEventListener('pointerup', onPointerUp);
       state = STATE.NONE;
+    }
+
+/*
+    function onPointerEnter(e) {
+      e.preventDefault();
+      scope.notify('menter', null);
+    }
+*/  
+
+    function onPointerLeave(e) {
+      e.preventDefault();
+      scope.notify('mleave', null);
     }
 
     // listen for mouse events
     view.addEventListener('wheel', onWheel);
     view.addEventListener('pointerdown', onPointerDown);
+    view.addEventListener('pointermove', onPointerMove);
+//    view.addEventListener('pointereenter', onPointerEnter);
+    view.addEventListener('pointerleave', onPointerLeave);
+  }
+
+  lock(id) {
+    this.locked.add(id);
+  }
+
+  unlock(id) {
+    this.locked.delete(id);
+  } 
+}
+
+Object.assign(Controller.prototype, ListenerSupport);
+
+/*
+export class LockCommand {
+  constructor(d) {
+    this.data = d;
+  }
+
+  static fromPiece(p) {
+    return new LockCommand({
+      type: 'lock',
+      pid: p.id
+    });
+  }
+
+  execute(controller) {
+    const 
   }
 }
+*/

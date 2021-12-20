@@ -16,24 +16,28 @@ export class View {
     this.model = model;
 
     this.svg = document.querySelector('svg');
-    this.g = document.querySelector('svg g');
+
+    this.world = document.querySelector('svg g');
+    this._initializeMatrix(this.world);
+
+    this.overlay = document.createElementNS(SVGNS, 'g');
+    this._initializeMatrix(this.overlay);
+    this.svg.appendChild(this.overlay);
 
     this.addPiece(model.data.boards[0]);
     this.model.data.pieces.forEach(p => this.addPiece(p));
 
     this.camera = new Camera();
 
-    // Initialize the transformation matrix on the group ("g") element
-    this.g.transform.baseVal.appendItem(
-      this.g.transform.baseVal.createSVGTransformFromMatrix(
+  }
+
+  _initializeMatrix(e) {
+    e.transform.baseVal.appendItem(
+      e.transform.baseVal.createSVGTransformFromMatrix(
         // TODO: Switch to DOMMatrix
         this.svg.createSVGMatrix()
       )
     );
-
-    this.model.on('move', cmd => {
-      this.updatePiece(cmd.pid, ['x', 'y', 'z']);
-    });
   }
 
   addEventListener(type, listener) {
@@ -44,6 +48,61 @@ export class View {
     this.svg.addEventListener(type, listener);
   }
 
+  hidePointer(uid) {
+    let p = document.getElementById(uid);
+    if (p !== null) {
+      p.parentNode.removeChild(p);
+    }
+  }
+
+  _createPointer(uid) {
+    const mp = document.createElementNS(SVGNS, 'g');
+    mp.id = uid;
+
+    const circ1 = document.createElementNS(SVGNS, 'circle');
+    circ1.setAttribute('cx', 0);
+    circ1.setAttribute('cy', 0);
+    circ1.setAttribute('r', 10);
+    circ1.style['stroke'] = 'black';
+    circ1.style['stroke-width'] = '2px';
+    circ1.style['fill'] = 'none';
+
+    const circ2 = document.createElementNS(SVGNS, 'circle');
+    circ2.setAttribute('cx', 0);
+    circ2.setAttribute('cy', 0);
+    circ2.setAttribute('r', 12);
+    circ2.style['stroke'] = 'white';
+    circ2.style['stroke-width'] = '2px';
+    circ2.style['fill'] = 'none';
+
+    const text = document.createElementNS(SVGNS, 'text');
+    text.setAttribute('x', 0);
+    text.setAttribute('y', 12);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'hanging');
+    text.innerHTML = uid; 
+    text.style['fill'] = 'black';
+    text.style['font-size'] = '8pt';
+
+    mp.appendChild(circ1);
+    mp.appendChild(circ2);
+    mp.appendChild(text);
+
+    this._initializeMatrix(mp);
+    this.overlay.appendChild(mp);
+  }
+
+  setPointerLocation(uid, pos) {
+    let mp = document.getElementById(uid);
+
+    if (mp === null) {
+      this._createPointer(uid);
+    }
+
+    const cpos = this.worldToClient(pos);
+    mp.transform.baseVal.getItem(0).setTranslate(cpos.x, cpos.y);
+  }
+
   addPiece(piece) {
     const pe = createPieceElement(
       piece['id'],
@@ -52,7 +111,7 @@ export class View {
       piece['y']
     );
 
-    this.g.appendChild(pe);
+    this.world.appendChild(pe);
   }
 
   removePiece(piece) {
@@ -75,6 +134,7 @@ export class View {
   selectPiece(piece) {
     const pe = document.getElementById(piece['id']);
     pe.parentNode.appendChild(pe);
+    // TODO: outline should be constant width, not scaled?
     pe.style.outline = '2px solid black';
   }
 
@@ -89,17 +149,17 @@ export class View {
 
   translate(dx, dy) {
     const m = this.camera.translate(dx, dy);
-    this.g.transform.baseVal.getItem(0).setMatrix(m);
+    this.world.transform.baseVal.getItem(0).setMatrix(m);
   }
 
   scale(ds, ox, oy) {
     const m = this.camera.scale(ds, ox, oy);
-    this.g.transform.baseVal.getItem(0).setMatrix(m);
+    this.world.transform.baseVal.getItem(0).setMatrix(m);
   }
 
   rotate(dtheta, ox, oy) {
     const m = this.camera.rotate(dtheta, ox, oy);
-    this.g.transform.baseVal.getItem(0).setMatrix(m);
+    this.world.transform.baseVal.getItem(0).setMatrix(m);
   }
 
   clientToWorld(p) {
