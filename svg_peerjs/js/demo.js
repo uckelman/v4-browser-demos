@@ -1,49 +1,47 @@
-import { loadGame, Model, MoveCommand } from './model.js';
-import { View } from './view.js';
-import { Controller } from './controller.js';
+import { loadGame, GameModel } from './gamemodel.js';
 
-import { Connection } from './connection.js';
+import { SurfaceView } from './surfaceview.js';
+import { SurfaceController } from './surfacecontroller.js';
+import { SurfaceUI } from './surfaceui.js';
+
 import { ConsoleController, ConsoleView } from './console.js';
 
-function makeMVC(state) {
-  const model = new Model(state);
-  const view = new View(model);
-  const controller = new Controller(model, view);
-  return [model, view, controller];
-}
+import { Connection } from './connection.js';
 
-function setupMVC(model, view, controller, conn, name) {
-  model.on('move', cmd => {
-    if (cmd.src === undefined) {
-      conn.send_all(cmd);
-    }
+function makeComponents(state, conn, name) {
+  const gmodel = new GameModel(state);
+
+  const smodel = {name: name};
+  const sview = new SurfaceView(gmodel);
+  const scontroller = new SurfaceController(gmodel, smodel, sview);
+  const sui = new SurfaceUI(smodel, sview, scontroller);
+
+  gmodel.on('move', cmd => {
+    sui.view.updatePiece(cmd.pid, ['x', 'y', 'z']);
   });
 
-  model.on('move', cmd => {
-    view.updatePiece(cmd.pid, ['x', 'y', 'z']);
+  sui.controller.on('move', cmd => {
+    conn.send_all(cmd);
+    gmodel.apply(cmd);
   });
 
-  controller.on('lock', pid => {
-    conn.send_all({ type: 'lock', pid: pid });
+  sui.controller.on('lock', cmd => {
+    conn.send_all(cmd);
   }); 
 
-  controller.on('unlock', pid => {
-    conn.send_all({ type: 'unlock', pid: pid });
+  sui.controller.on('unlock', cmd => {
+    conn.send_all(cmd);
   });
 
-  controller.on('mpos', pos => {
-    conn.send_all({ type: 'mpos', name: name, x: pos.x, y: pos.y });
+  sui.controller.on('mpos', cmd => {
+    conn.send_all(cmd);
   });
 
-/*
-  controller.on('menter', pos => {
-    conn.send_all({ type: 'menter' });
+  sui.controller.on('mleave', cmd => {
+    conn.send_all(cmd);
   });
-*/
 
-  controller.on('mleave', pos => {
-    conn.send_all({ type: 'mleave', name: name });
-  });
+  return [gmodel, sui];
 }
 
 async function init() {
@@ -81,22 +79,20 @@ async function init() {
     postMessage('Connection to ' + id + ' closed.');
   });
 
-  let model = null;
-  let view = null; 
-  let controller = null; 
+  let gmodel = null;
+  let sui = null; 
 
   const message_handlers = {
     message: cmd => postMessage(cmd.name + ": " + cmd.text),
-    move: cmd => model.apply(new MoveCommand(cmd)),
+    move: cmd => gmodel.apply(cmd),
     sync: cmd => {
       postMessage("Synchronizing with peer " + cmd.src);
-      [model, view, controller] = makeMVC(cmd.state);
-      setupMVC(model, view, controller, conn, name);
+      [gmodel, sui] = makeComponents(cmd.state, conn, name);
     },
-    lock: cmd => controller.lock(cmd.pid),
-    unlock: cmd => controller.unlock(cmd.pid),
-    mpos: cmd => view.setPointerLocation(cmd.name, new DOMPoint(cmd.x, cmd.y)),
-    mleave: cmd => view.hidePointer(cmd.name)
+    lock: cmd => sui.controller.lock(cmd.pid),
+    unlock: cmd => sui.controller.unlock(cmd.pid),
+    mpos: cmd => sui.view.setPointerLocation(cmd.name, new DOMPoint(cmd.x, cmd.y)),
+    mleave: cmd => sui.view.hidePointer(cmd.name)
   };
 
   if (remote_id) {
@@ -124,24 +120,23 @@ async function init() {
     conn.start();
     conn.listen();
 
-    const game = await loadGame('game.json');
+    const state = await loadGame('game.json');
 
-    game.pieces.forEach((p, i) => {
+    state.pieces.forEach((p, i) => {
       p['id'] = `${i}`;
       p['x'] = window.innerWidth * Math.random();
       p['y'] = window.innerHeight * Math.random();
       p['z'] = 0;
     });
 
-    [model, view, controller] = makeMVC(game);
-    setupMVC(model, view, controller, conn, name);
+    [gmodel, sui] = makeComponents(state, conn, name);
 
     conn.on('open', id => {
       postMessage("Sending state to " + id);
 
       const state = {
-        boards: model.data.boards,
-        pieces: Array.from(model.data.pieces.values())
+        boards: gmodel.data.boards,
+        pieces: Array.from(gmodel.data.pieces.values())
       };
 
       conn.send({ type: 'sync', state: state }, id);
@@ -155,9 +150,6 @@ async function init() {
 
   consoleCtrl.on('message', cmd => {
     conn.send_all(cmd);
-  });
-
-  consoleCtrl.on('message', cmd => {
     consoleView.append(cmd.name + ": " + cmd.text);
   });
 }

@@ -11,7 +11,7 @@ function createPieceElement(id, img_url, x, y) {
   return img;
 }
 
-export class View {
+export class SurfaceView {
   constructor(model) {
     this.model = model;
 
@@ -90,15 +90,12 @@ export class View {
 
     this._initializeMatrix(mp);
     this.overlay.appendChild(mp);
+
+    return mp;
   }
 
   setPointerLocation(uid, pos) {
-    let mp = document.getElementById(uid);
-
-    if (mp === null) {
-      this._createPointer(uid);
-    }
-
+    let mp = document.getElementById(uid) || this._createPointer(uid);
     const cpos = this.worldToClient(pos);
     mp.transform.baseVal.getItem(0).setTranslate(cpos.x, cpos.y);
   }

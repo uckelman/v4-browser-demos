@@ -1,10 +1,10 @@
 import { ListenerSupport } from './listener.js';
-import { MoveCommand } from './model.js';
 
-export class Controller {
-  constructor(model, view) {
+export class SurfaceController {
+  constructor(model, uimodel, view) {
     this.model = model;
     this.view = view;
+    this.uimodel = uimodel;
 
     this.listeners = {};
 
@@ -54,7 +54,7 @@ export class Controller {
               view.selectPiece(dragging);
 
               // lock dragging piece
-              scope.notify('lock', dragging.id);
+              scope.notify('lock', { type: 'lock', pid: dragging.pid });
             }
           }
           else {
@@ -125,8 +125,16 @@ export class Controller {
           const dx =  ep.x - sp.x;
           const dy =  ep.y - sp.y;
 
-          const cmd = MoveCommand.fromPiece(dragging, dragging.x + dx, dragging.y + dy, dragging.z);
-          model.apply(cmd);
+          scope.notify('move', {
+            type: 'move',
+            pid: dragging.id,
+            prev_x: dragging.x,
+            prev_y: dragging.y,
+            prev_z: dragging.z,
+            next_x: dragging.x + dx,
+            next_y: dragging.y + dy,
+            next_z: dragging.z
+          });
 
           // reset our start point
           moveStart.x = moveEnd.x;
@@ -165,7 +173,13 @@ export class Controller {
 
       mousePos.x = e.clientX;
       mousePos.y = e.clientY;
-      scope.notify('mpos', view.clientToWorld(mousePos));
+      const wpos = view.clientToWorld(mousePos);
+      scope.notify('mpos', {
+        type: 'mpos',
+        name: scope.uimodel.name,
+        x: wpos.x,
+        y: wpos.y
+      });
     }
 
     function onPointerUp(e) {
@@ -175,7 +189,7 @@ export class Controller {
         view.deselectPiece(dragging);
 
         // notify other clients of unlock
-        scope.notify('unlock', dragging.id);
+        scope.notify('unlock', { type: 'unlock', pid: dragging.pid });
 
         dragging = null;
       }
@@ -184,23 +198,15 @@ export class Controller {
       state = STATE.NONE;
     }
 
-/*
-    function onPointerEnter(e) {
-      e.preventDefault();
-      scope.notify('menter', null);
-    }
-*/  
-
     function onPointerLeave(e) {
       e.preventDefault();
-      scope.notify('mleave', null);
+      scope.notify('mleave', { type: 'mleave', name: scope.uimodel.name });
     }
 
     // listen for mouse events
     view.addEventListener('wheel', onWheel);
     view.addEventListener('pointerdown', onPointerDown);
     view.addEventListener('pointermove', onPointerMove);
-//    view.addEventListener('pointereenter', onPointerEnter);
     view.addEventListener('pointerleave', onPointerLeave);
   }
 
@@ -213,7 +219,7 @@ export class Controller {
   } 
 }
 
-Object.assign(Controller.prototype, ListenerSupport);
+Object.assign(SurfaceController.prototype, ListenerSupport);
 
 /*
 export class LockCommand {
