@@ -45,5 +45,7 @@ export class Camera {
     return p.matrixTransform(this.m_inv);
   }
 
-// FIXME: also have worldToClient?
+  worldToClient(p) {
+    return p.matrixTransform(this.m);
+  }
 }

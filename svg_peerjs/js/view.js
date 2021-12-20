@@ -105,4 +105,8 @@ export class View {
   clientToWorld(p) {
     return this.camera.clientToWorld(p);
   }
+
+  worldToClient(p) {
+    return this.camera.worldToClient(p);
+  }
 }
