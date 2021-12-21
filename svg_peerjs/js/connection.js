@@ -138,7 +138,7 @@ export class Connection {
     this.send_or_close(c, data);
   }
 
-  send_all(data) {
+  send_others(data) {
     if (data.src === undefined) {
       data.src = this.peer.id;
     }
@@ -147,6 +147,16 @@ export class Connection {
       if (data.src !== c.peer) {
         this.send_or_close(c, data);
       }
+    }
+  }
+
+  send_all(data) {
+    if (data.src === undefined) {
+      data.src = this.peer.id;
+    }
+
+    for (const c of this.connections.values()) {
+      this.send_or_close(c, data);
     }
   }
 }

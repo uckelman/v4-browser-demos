@@ -8,6 +8,8 @@ import { ConsoleController, ConsoleView } from './console.js';
 
 import { Connection } from './connection.js';
 
+//import { Dispatcher } from './dispatcher.js';
+
 function makeComponents(state, conn, name) {
   const gmodel = new GameModel(state);
 
@@ -20,10 +22,12 @@ function makeComponents(state, conn, name) {
     sui.view.updatePiece(cmd.pid, ['x', 'y', 'z']);
   });
 
+/*
   sui.controller.on('move', cmd => {
     conn.send_all(cmd);
     gmodel.apply(cmd);
   });
+*/
 
   sui.controller.on('lock', cmd => {
     conn.send_all(cmd);
@@ -88,12 +92,39 @@ async function init() {
     sync: cmd => {
       postMessage("Synchronizing with peer " + cmd.src);
       [gmodel, sui] = makeComponents(cmd.state, conn, name);
+
+      const server_id = cmd.src;
+      sui.controller.on('move', cmd => {
+        conn.send(cmd, server_id);
+      });
+
+      consoleCtrl.on('message', cmd => {
+        conn.send(cmd, server_id);
+      });
     },
-    lock: cmd => sui.controller.lock(cmd.pid),
-    unlock: cmd => sui.controller.unlock(cmd.pid),
-    mpos: cmd => sui.view.setPointerLocation(cmd.name, new DOMPoint(cmd.x, cmd.y)),
-    mleave: cmd => sui.view.hidePointer(cmd.name)
+    lock: cmd => {
+      if (cmd.src !== conn.peer.id) {
+        sui.controller.lock(cmd.pid);
+      }
+    },
+    unlock: cmd => {
+      if (cmd.src !== conn.peer.id) {
+        sui.controller.unlock(cmd.pid);
+      }
+    },
+    mpos: cmd => {
+      if (cmd.src !== conn.peer.id) {
+        sui.view.setPointerLocation(cmd.name, new DOMPoint(cmd.x, cmd.y));
+      }
+    },
+    mleave: cmd => {
+      if (cmd.src !== conn.peer.id) {
+        sui.view.hidePointer(cmd.name);
+      }
+    }
   };
+
+//  const dispatcher = new Dispatcher(message_handlers);
 
   if (remote_id) {
     // client: connect to server 
@@ -104,6 +135,7 @@ async function init() {
     });
 
     conn.on('recv', cmd => {
+//      console.log(cmd);
       (message_handlers[cmd.type] || console.log)(cmd);
     });
 
@@ -131,6 +163,16 @@ async function init() {
 
     [gmodel, sui] = makeComponents(state, conn, name);
 
+    sui.controller.on('move', cmd => {
+      conn.send_all(cmd);
+      gmodel.apply(cmd);
+    });
+
+    consoleCtrl.on('message', cmd => {
+      conn.send_all(cmd);
+      consoleView.append(cmd.name + ": " + cmd.text);
+    });
+
     conn.on('open', id => {
       postMessage("Sending state to " + id);
 
@@ -147,11 +189,6 @@ async function init() {
       (message_handlers[cmd.type] || console.log)(cmd);
     });
   }
-
-  consoleCtrl.on('message', cmd => {
-    conn.send_all(cmd);
-    consoleView.append(cmd.name + ": " + cmd.text);
-  });
 }
 
 init();
