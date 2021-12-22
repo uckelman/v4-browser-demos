@@ -116,9 +116,11 @@ export class Client {
       uistate.uid = id;
     });
 
+    const noop = _ => {};
+
     conn.on('recv', cmd => {
-  //      console.log(cmd);
-      (message_handlers[cmd.type] || console.log)(cmd);
+      console.log(cmd);
+      (message_handlers[cmd.type] || noop)(cmd);
     });
   }
 

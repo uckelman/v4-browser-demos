@@ -1,8 +1,8 @@
 export class Server {
   constructor(model, loc, conn) {
 
-    this._model = model;
-    this._conn = conn;
+    this.model = model;
+    this.conn = conn;
 
     this._locks = new Map();
 
@@ -67,9 +67,9 @@ export class Server {
     });
   }
 
-  async run() {
-    this._conn.start();
-    this._conn.listen();
-    return await this.ready;
+  run() {
+    this.conn.start();
+    this.conn.listen();
+    return this.ready;
   }
 }
