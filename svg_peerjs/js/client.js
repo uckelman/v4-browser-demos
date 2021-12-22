@@ -44,7 +44,14 @@ export class Client {
     let uistate = { name: name };
 
     const message_handlers = {
-      message: cmd => postMessage(cmd.name + ": " + cmd.text),
+      message: cmd => {
+        if (cmd.name) {
+          postMessage(cmd.name + ": " + cmd.text);
+        }
+        else {
+          postMessage(cmd.text);
+        }
+      },
       move: cmd => gmodel.apply(cmd),
       sync: cmd => {
         postMessage("Synchronizing with server " + cmd.src);

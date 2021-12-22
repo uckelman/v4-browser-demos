@@ -1,5 +1,5 @@
 export class Server {
-  constructor(model, conn) {
+  constructor(model, loc, conn) {
 
     this._model = model;
     this._conn = conn;
@@ -31,7 +31,6 @@ export class Server {
     this.ready = new Promise(resolve => {
       conn.on('p_open', id => {
         console.log("We are " + id);
-        console.log(`Connect to ${window.location.protocol}//${window.location.host}${window.location.pathname}?id=${id}`);
         resolve(id);
       });
     });
@@ -45,6 +44,7 @@ export class Server {
       };
 
       conn.send({ type: 'sync', state: state }, id);
+      conn.send({ type: 'message', text: `Connect to ${loc}?id=${conn.peer.id}` }, id);
     });
 
     const message_handlers = {
@@ -58,10 +58,12 @@ export class Server {
       unlock: cmd => locks.delete(cmd.pid)
     };
 
+    const noop = _ => {};
+
     conn.on('recv', cmd => {
       console.log(cmd);
       conn.send_all(cmd);
-      (message_handlers[cmd.type] || (_ => {}))(cmd);
+      (message_handlers[cmd.type] || noop)(cmd);
     });
   }
 

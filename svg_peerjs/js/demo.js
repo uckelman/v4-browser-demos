@@ -22,7 +22,9 @@ async function init() {
 
     const model = new GameModel(state);
     const sconn = new Connection();
-    const server = new Server(model, sconn);
+    const loc = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
+
+    const server = new Server(model, loc, sconn);
     remote_id = await server.run();
   }
 
