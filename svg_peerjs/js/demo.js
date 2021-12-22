@@ -10,10 +10,10 @@ import { Connection } from './connection.js';
 
 //import { Dispatcher } from './dispatcher.js';
 
-function makeComponents(state, conn, name) {
+function makeComponents(state, conn, uistate) {
   const gmodel = new GameModel(state);
 
-  const smodel = {name: name};
+  const smodel = uistate;
   const sview = new SurfaceView(gmodel);
   const scontroller = new SurfaceController(gmodel, smodel, sview);
   const sui = new SurfaceUI(smodel, sview, scontroller);
@@ -27,11 +27,11 @@ function makeComponents(state, conn, name) {
     conn.send_all(cmd);
     gmodel.apply(cmd);
   });
-*/
 
   sui.controller.on('lock', cmd => {
     conn.send_all(cmd);
-  }); 
+  });
+*/
 
   sui.controller.on('unlock', cmd => {
     conn.send_all(cmd);
@@ -85,31 +85,39 @@ async function init() {
 
   let gmodel = null;
   let sui = null; 
+  let uistate = { name: name };
 
   const message_handlers = {
     message: cmd => postMessage(cmd.name + ": " + cmd.text),
-    move: cmd => gmodel.apply(cmd),
+    move: cmd => {
+      if (cmd.src !== conn.peer.id) {
+        gmodel.apply(cmd);
+      }
+    },
     sync: cmd => {
       postMessage("Synchronizing with peer " + cmd.src);
-      [gmodel, sui] = makeComponents(cmd.state, conn, name);
+      [gmodel, sui] = makeComponents(cmd.state, conn, uistate);
 
       const server_id = cmd.src;
       sui.controller.on('move', cmd => {
         conn.send(cmd, server_id);
+        gmodel.apply(cmd);
       });
-
+  
+      sui.controller.on('try_lock', cmd => {
+        conn.send(cmd, server_id);
+      });
+ 
       consoleCtrl.on('message', cmd => {
         conn.send(cmd, server_id);
       });
     },
-    lock: cmd => {
-      if (cmd.src !== conn.peer.id) {
-        sui.controller.lock(cmd.pid);
-      }
-    },
-    unlock: cmd => {
-      if (cmd.src !== conn.peer.id) {
-        sui.controller.unlock(cmd.pid);
+    lock: cmd => sui.controller.lock(cmd.pid, cmd.uid),
+    unlock: cmd => sui.controller.unlock(cmd.pid),
+    try_lock: cmd => {
+      if (!sui.controller.is_locked(cmd.pid)) {
+        sui.controller.lock(cmd.pid, cmd.src);
+        conn.send_all({ type: 'lock', pid: cmd.pid, uid: cmd.src });
       }
     },
     mpos: cmd => {
@@ -132,6 +140,7 @@ async function init() {
       postMessage("We are " + id);
       postMessage("Connecting to " + remote_id);
       conn.connect(remote_id);
+      uistate.uid = id;
     });
 
     conn.on('recv', cmd => {
@@ -147,6 +156,7 @@ async function init() {
       postMessage("We are " + id);
       postMessage(`Connect to ${window.location.protocol}//${window.location.host}${window.location.pathname}?id=${id}`);
       postMessage("Awaiting connection...");
+      uistate.uid = id;
     });
 
     conn.start();
@@ -161,11 +171,19 @@ async function init() {
       p['z'] = 0;
     });
 
-    [gmodel, sui] = makeComponents(state, conn, name);
+    [gmodel, sui] = makeComponents(state, conn, uistate);
 
     sui.controller.on('move', cmd => {
       conn.send_all(cmd);
       gmodel.apply(cmd);
+    });
+
+    sui.controller.on('try_lock', cmd => {
+      if (!sui.controller.is_locked(cmd.pid)) {
+        const src = conn.peer.id;
+        sui.controller.lock(cmd.pid, src);
+        conn.send_all({ type: 'lock', pid: cmd.pid, uid: src });
+      }
     });
 
     consoleCtrl.on('message', cmd => {

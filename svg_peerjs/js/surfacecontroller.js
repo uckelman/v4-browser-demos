@@ -24,9 +24,8 @@ export class SurfaceController {
 
     let state = STATE.NONE;
 
-    let dragging = null;
-
-    this.locked = new Set();
+    this.dragging = null;
+    this.locked = new Map();
 
     const scope = this;
 
@@ -43,18 +42,19 @@ export class SurfaceController {
           state = STATE.ROTATE;
         }
         else {
-          dragging = model.data.pieces.get(view.pieceIdFor(e)) || null;
-          if (dragging !== null) {
-            if (scope.locked.has(dragging)) {
+          scope.dragging = model.data.pieces.get(view.pieceIdFor(e)) || null;
+          if (scope.dragging !== null) {
+            if (scope.locked.has(scope.dragging.id)) {
               state = STATE.NONE;
+              scope.dragging = null;
             }
             else {
               // begin dragging a piece
               state = STATE.DRAG;
-              view.selectPiece(dragging);
+              view.selectPiece(scope.dragging);
 
               // lock dragging piece
-              scope.notify('lock', { type: 'lock', pid: dragging.pid });
+              scope.notify('try_lock', { type: 'try_lock', pid: scope.dragging.id });
             }
           }
           else {
@@ -107,38 +107,40 @@ export class SurfaceController {
 
       case STATE.DRAG:
         {
-          // determine distance moved
-          moveEnd.x = e.clientX;
-          moveEnd.y = e.clientY;
+          if (scope.locked.get(scope.dragging.id) === scope.uimodel.uid) {
+            // determine distance moved
+            moveEnd.x = e.clientX;
+            moveEnd.y = e.clientY;
 
-          // switch coordinate systems from client to world
-          const sp = view.clientToWorld(moveStart);
-          const ep = view.clientToWorld(moveEnd);
+            // switch coordinate systems from client to world
+            const sp = view.clientToWorld(moveStart);
+            const ep = view.clientToWorld(moveEnd);
 
-          // update the position of the piece
-/*
-          dragging['x'] += ep.x - sp.x;
-          dragging['y'] += ep.y - sp.y;
+            // update the position of the piece
+  /*
+            dragging['x'] += ep.x - sp.x;
+            dragging['y'] += ep.y - sp.y;
 
-          view.updatePiece(dragging, ['x', 'y']);
-*/
-          const dx =  ep.x - sp.x;
-          const dy =  ep.y - sp.y;
+            view.updatePiece(dragging, ['x', 'y']);
+  */
+            const dx =  ep.x - sp.x;
+            const dy =  ep.y - sp.y;
 
-          scope.notify('move', {
-            type: 'move',
-            pid: dragging.id,
-            prev_x: dragging.x,
-            prev_y: dragging.y,
-            prev_z: dragging.z,
-            next_x: dragging.x + dx,
-            next_y: dragging.y + dy,
-            next_z: dragging.z
-          });
+            scope.notify('move', {
+              type: 'move',
+              pid: scope.dragging.id,
+              prev_x: scope.dragging.x,
+              prev_y: scope.dragging.y,
+              prev_z: scope.dragging.z,
+              next_x: scope.dragging.x + dx,
+              next_y: scope.dragging.y + dy,
+              next_z: scope.dragging.z
+            });
 
-          // reset our start point
-          moveStart.x = moveEnd.x;
-          moveStart.y = moveEnd.y;
+            // reset our start point
+            moveStart.x = moveEnd.x;
+            moveStart.y = moveEnd.y;
+          }
         }
         break;
 
@@ -185,13 +187,14 @@ export class SurfaceController {
     function onPointerUp(e) {
       e.preventDefault();
 
-      if (dragging !== null) {
-        view.deselectPiece(dragging);
+      if (scope.dragging !== null) {
+        view.deselectPiece(scope.dragging);
 
         // notify other clients of unlock
-        scope.notify('unlock', { type: 'unlock', pid: dragging.pid });
+        scope.notify('unlock', { type: 'unlock', pid: scope.dragging.id });
 
-        dragging = null;
+        scope.unlock(scope.dragging.id);
+        scope.dragging = null;
       }
 
       view.removeEventListener('pointerup', onPointerUp);
@@ -210,13 +213,17 @@ export class SurfaceController {
     view.addEventListener('pointerleave', onPointerLeave);
   }
 
-  lock(id) {
-    this.locked.add(id);
+  lock(pid, uid) {
+    this.locked.set(pid, uid);
   }
 
-  unlock(id) {
-    this.locked.delete(id);
-  } 
+  is_locked(pid) {
+    return this.locked.has(pid);
+  }
+
+  unlock(pid) {
+    this.locked.delete(pid);
+  }
 }
 
 Object.assign(SurfaceController.prototype, ListenerSupport);

@@ -5,30 +5,44 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 function createPieceElement(id, img_url, x, y) {
   const img = document.createElementNS(SVGNS, 'image');
   img.id = id;
+
+  const p = new Promise(resolve => img.addEventListener('load', resolve));
+
   img.setAttribute('href', img_url);
   img.setAttribute('x', x);
   img.setAttribute('y', y);
-  return img;
+  return [img, p];
 }
 
 export class SurfaceView {
   constructor(model) {
     this.model = model;
 
-    this.svg = document.querySelector('svg');
+    this.camera = new Camera();
 
-    this.world = document.querySelector('svg g');
-    this._initializeMatrix(this.world);
+    this.svg = document.querySelector('svg');
 
     this.overlay = document.createElementNS(SVGNS, 'g');
     this._initializeMatrix(this.overlay);
     this.svg.appendChild(this.overlay);
 
-    this.addPiece(model.data.boards[0]);
-    this.model.data.pieces.forEach(p => this.addPiece(p));
+    this.world = document.querySelector('svg g');
+    this._initializeMatrix(this.world);
 
-    this.camera = new Camera();
+    const wdisp = this.world.style['display'];
+    this.world.style['display'] = 'none';
 
+//    this.addPiece(this.model.data.boards[0]);
+//    [...this.model.data.pieces.values()].forEach(p => this.addPiece(p));
+
+    (async () => {
+      await Promise.all([
+        this.addPiece(this.model.data.boards[0]),
+        ...[...this.model.data.pieces.values()].map(p => this.addPiece(p))
+      ]);
+
+      this.world.style['display'] = wdisp;
+    })();
   }
 
   _initializeMatrix(e) {
@@ -101,7 +115,7 @@ export class SurfaceView {
   }
 
   addPiece(piece) {
-    const pe = createPieceElement(
+    const [pe, pr] = createPieceElement(
       piece['id'],
       'images/' + piece['img'],
       piece['x'],
@@ -109,6 +123,7 @@ export class SurfaceView {
     );
 
     this.world.appendChild(pe);
+    return pr;
   }
 
   removePiece(piece) {
