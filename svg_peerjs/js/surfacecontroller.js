@@ -227,22 +227,3 @@ export class SurfaceController {
 }
 
 Object.assign(SurfaceController.prototype, ListenerSupport);
-
-/*
-export class LockCommand {
-  constructor(d) {
-    this.data = d;
-  }
-
-  static fromPiece(p) {
-    return new LockCommand({
-      type: 'lock',
-      pid: p.id
-    });
-  }
-
-  execute(controller) {
-    const 
-  }
-}
-*/
