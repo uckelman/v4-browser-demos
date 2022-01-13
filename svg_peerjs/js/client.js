@@ -1,17 +1,11 @@
 import { GameModel } from './gamemodel.js';
 
-import { SurfaceView } from './surfaceview.js';
-import { SurfaceController } from './surfacecontroller.js';
-import { SurfaceUI } from './surfaceui.js';
-
-import { ConsoleController, ConsoleView } from './console.js';
+import { LamportClock } from './lamportclock.js';
 
 
 export class Client {
-  constructor(server_id, name, conn) {
-    const consoleCtrl = new ConsoleController(name);
-    const consoleView = new ConsoleView(name);
-    const postMessage = msg => consoleView.append(msg);
+  constructor(server_id, name, consoleui, surfaceuiFactory, conn) {
+    const postMessage = msg => consoleui.view.append(msg);
 
     postMessage("Not connected");
 
@@ -39,6 +33,12 @@ export class Client {
       postMessage('Connection to ' + id + ' closed.');
     });
 
+    const clock = new LamportClock();
+    const send = (cmd, remote_id) => {
+      cmd.time = clock.tick();
+      conn.send(cmd, remote_id);
+    };
+
     let gmodel = null;
     let sui = null; 
     let uistate = { name: name };
@@ -52,24 +52,41 @@ export class Client {
           postMessage(cmd.text);
         }
       },
-      move: cmd => gmodel.apply(cmd),
+      move: cmd => {
+        clock.tick(cmd.time);
+        gmodel.apply(cmd);
+      },
       sync: cmd => {
-        postMessage("Synchronizing with server " + cmd.src);
+        const server_id = cmd.src;
+        postMessage("Synchronizing with server " + server_id);
 
-        gmodel = new GameModel(cmd.state);
+        // set up client infrastructure
+// TODO: factory
+        gmodel = new GameModel(cmd.state, cmd.meta);
+        sui = surfaceuiFactory(gmodel, uistate);
 
-        const smodel = uistate;
-        const sview = new SurfaceView(gmodel);
-        const scontroller = new SurfaceController(gmodel, smodel, sview);
-
-        sui = new SurfaceUI(smodel, sview, scontroller);
+        // commands affecting game state
 
         gmodel.on('move', cmd => {
           sui.view.updatePiece(cmd.pid, ['x', 'y', 'z']);
         });
 
-        sui.controller.on('unlock', cmd => {
+        sui.controller.on('move', cmd => {
+          send(cmd, server_id);
+          gmodel.apply(cmd);
+        });
+
+        // logged commands
+
+        consoleui.controller.on('message', cmd => {
           conn.send(cmd, server_id);
+        });
+
+        // ephemeral commands
+
+        consoleui.controller.on('nick', cmd => {
+          console.log(cmd);
+          sui.controller.uimodel.name = cmd.name;
         });
 
         sui.controller.on('mpos', cmd => {
@@ -80,17 +97,11 @@ export class Client {
           conn.send(cmd, server_id);
         });
 
-        const server_id = cmd.src;
-        sui.controller.on('move', cmd => {
-          conn.send(cmd, server_id);
-          gmodel.apply(cmd);
-        });
-    
-        sui.controller.on('try_lock', cmd => {
+         sui.controller.on('try_lock', cmd => {
           conn.send(cmd, server_id);
         });
-   
-        consoleCtrl.on('message', cmd => {
+
+        sui.controller.on('unlock', cmd => {
           conn.send(cmd, server_id);
         });
       },

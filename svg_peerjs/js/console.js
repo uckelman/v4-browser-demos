@@ -15,6 +15,21 @@ export class ConsoleController {
       if (e.key === 'Enter') {
         const msg = scope.messageInput.value;
         scope.messageInput.value = "";
+
+        if (msg.startsWith('/')) {
+          // check for console commands
+          const [cmd, rest] = msg.substr(1).split(' ', 2);
+          if (cmd === 'nick') {
+            scope.name = rest;
+
+            scope.notify('nick', {
+              type: 'nick',
+              name: rest,
+            });
+            return;
+          }
+        }
+
         scope.notify('message', {
           type: 'message',
           name: scope.name,
@@ -40,5 +55,12 @@ export class ConsoleView {
 
   append(text) {
     appendToTextarea(this.messages, text);
+  }
+}
+
+export class ConsoleUI {
+  constructor(view, controller) {
+    this.view = view;
+    this.controller = controller;
   }
 }

@@ -117,7 +117,8 @@ export class SurfaceView {
   addPiece(piece) {
     const [pe, pr] = createPieceElement(
       piece['id'],
-      'images/' + piece['img'],
+//      piece['img'],
+      this.model.meta.basedir + '/' + this.model.data.images.get(piece['img'])['src'],
       piece['x'],
       piece['y']
     );

@@ -18,14 +18,20 @@ class MoveCommand {
 }
 
 export class GameModel {
-  constructor(data) {
+  constructor(data, meta) {
     this.listeners = {};
+
+    this.meta = meta;
 
     this.data = data;
 
     const pmap = new Map();
     this.data.pieces.forEach(p => pmap.set(p.id, p));
     this.data.pieces = pmap;
+
+    const imap = new Map();
+    this.data.images.forEach(i => imap.set(i.id, i));
+    this.data.images = imap;
 
     this.commands = {
       move: MoveCommand

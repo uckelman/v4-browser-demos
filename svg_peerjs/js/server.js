@@ -1,3 +1,6 @@
+import { LamportClock } from './lamportclock.js';
+
+
 export class Server {
   constructor(model, loc, conn) {
 
@@ -7,6 +10,8 @@ export class Server {
     this._locks = new Map();
 
     const locks = this._locks;
+
+    const clock = new LamportClock();
 
     conn.on('p_disconnected', () => {
       console.log("Connection lost. Please reconnect.");
@@ -40,15 +45,23 @@ export class Server {
 
       const state = {
         boards: model.data.boards,
-        pieces: Array.from(model.data.pieces.values())
+        pieces: Array.from(model.data.pieces.values()),
+        images: Array.from(model.data.images.values())
       };
 
-      conn.send({ type: 'sync', state: state }, id);
+      const meta = {
+        basedir: model.meta.basedir
+      };
+
+      conn.send({ type: 'sync', state: state, meta: meta }, id);
       conn.send({ type: 'message', text: `Connect to ${loc}?id=${conn.peer.id}` }, id);
     });
 
     const message_handlers = {
-      move: cmd => model.apply(cmd),
+      move: cmd => {
+        clock.tick(cmd.time);
+        model.apply(cmd);
+      },
       try_lock: cmd => {
         if (!locks.has(cmd.pid)) {
           locks.set(cmd.pid, cmd.src);
