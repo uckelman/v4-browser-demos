@@ -46,3 +46,7 @@ body {
 #messageInput {
   width: 100%;
 }
+
+#assets {
+  visibility: hidden;
+}

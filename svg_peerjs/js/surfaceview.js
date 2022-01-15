@@ -1,17 +1,83 @@
 import { Camera } from './camera.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
+const XLINKNS = 'http://www.w3.org/1999/xlink';
 
-function createPieceElement(id, img_url, x, y) {
-  const img = document.createElementNS(SVGNS, 'image');
-  img.id = id;
-
+async function dimensionsOf(img_url) {
+  const img = new Image();
   const p = new Promise(resolve => img.addEventListener('load', resolve));
+  img.src = img_url;
+  await p;
+  return {
+    width: img.naturalWidth,
+    height: img.naturalHeight
+  };
+}
+
+function createImageAsset(id, img_url) {
+  return img_url.endsWith('.svg') ?
+    createImageAssetSVG(id, img_url) :
+    createImageAssetBitmap(id, img_url);
+}
+
+function createImageAssetBitmap(id, img_url) {
+  const img = document.createElementNS(SVGNS, 'image');
+  const symbol = document.createElementNS(SVGNS, 'symbol');
+  symbol.id = id;
+  symbol.appendChild(img);
+
+  const p = new Promise(resolve => img.addEventListener('load', resolve))
+    .then(() => { return dimensionsOf(img_url); })
+    .then(d => {
+      img.setAttribute('width', d.width);
+      img.setAttribute('height', d.height);
+      symbol.setAttribute('width', d.width);
+      symbol.setAttribute('height', d.height);
+    });
 
   img.setAttribute('href', img_url);
-  img.setAttribute('x', x);
-  img.setAttribute('y', y);
-  return [img, p];
+
+  return [symbol, p];
+}
+
+function createImageAssetSVG(id, img_url) {
+  const symbol = document.createElementNS(SVGNS, 'symbol');
+  symbol.id = id;
+
+  const base_url = img_url.substring(0, img_url.lastIndexOf('/'));
+
+  const p = fetch(img_url)
+    .then(response => response.text())
+    .then(data => {
+      // load the SVG
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(data, 'image/svg+xml');
+      const svg = doc.querySelector('svg');
+
+      // fix up relative hrefs
+      // TODO: also modify regular href?
+      [].slice.call(svg.querySelectorAll("[*|href]"))
+        .filter(e => !e.getAttribute('xlink:href').startsWith('#'))
+        .forEach(e => e.setAttributeNS(
+          XLINKNS,
+          'xlink:href',
+          base_url + '/' + e.getAttribute('xlink:href')
+        ));
+
+      symbol.setAttribute('width', svg.getAttribute('width'));
+      symbol.setAttribute('height', svg.getAttribute('height'));
+
+      symbol.appendChild(svg);
+    });
+
+  return [symbol, p];
+}
+
+function createPieceElement(id, img_id, x, y) {
+  const use = document.createElementNS(SVGNS, 'use');
+  use.setAttribute('href', '#' + img_id);
+  use.setAttributeNS(XLINKNS, 'xlink:href', '#' + img_id);
+  return use;
 }
 
 export class SurfaceView {
@@ -26,22 +92,26 @@ export class SurfaceView {
     this._initializeMatrix(this.overlay);
     this.svg.appendChild(this.overlay);
 
+    this.assets = document.getElementById('assets');
+
     this.world = document.querySelector('svg g');
     this._initializeMatrix(this.world);
 
     const wdisp = this.world.style['display'];
     this.world.style['display'] = 'none';
 
-//    this.addPiece(this.model.data.boards[0]);
-//    [...this.model.data.pieces.values()].forEach(p => this.addPiece(p));
-
     (async () => {
-      await Promise.all([
-        this.addPiece(this.model.data.boards[0]),
-        ...[...this.model.data.pieces.values()].map(p => this.addPiece(p))
-      ]);
+      await Promise.all(
+        [...this.model.data.images.values()].map(a => this.addImageAsset(a))
+      );
+
+      this.addPiece(this.model.data.boards[0]);
+      for (const p of this.model.data.pieces.values()) {
+        this.addPiece(p);
+      }
 
       this.world.style['display'] = wdisp;
+      this.assets.style['display'] = 'none';
     })();
   }
 
@@ -94,7 +164,7 @@ export class SurfaceView {
     text.setAttribute('y', 12);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('dominant-baseline', 'hanging');
-    text.innerHTML = uid; 
+    text.innerHTML = uid;
     text.style['fill'] = 'black';
     text.style['font-size'] = '8pt';
 
@@ -114,17 +184,31 @@ export class SurfaceView {
     mp.transform.baseVal.getItem(0).setTranslate(cpos.x, cpos.y);
   }
 
-  addPiece(piece) {
-    const [pe, pr] = createPieceElement(
-      piece['id'],
-//      piece['img'],
-      this.model.meta.basedir + '/' + this.model.data.images.get(piece['img'])['src'],
-      piece['x'],
-      piece['y']
+  addImageAsset(asset) {
+    const [ae, pr] = createImageAsset(
+      'a_' + asset.id,
+      this.model.meta.basedir + '/' + asset.src
     );
 
-    this.world.appendChild(pe);
+    this.assets.appendChild(ae);
     return pr;
+  }
+
+  addPiece(piece) {
+    const a_ref = 'a_' + piece.faces[0].img;
+    const a = document.getElementById(a_ref);
+
+    const pe = createPieceElement(piece.id, a_ref, piece.x, piece.y);
+
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.appendChild(pe);
+    this.world.appendChild(svg);
+
+    svg.id = piece.id;
+    svg.setAttribute('x', piece.x);
+    svg.setAttribute('y', piece.y);
+    svg.setAttribute('width', a.getAttribute('width'));
+    svg.setAttribute('height', a.getAttribute('height'));
   }
 
   removePiece(piece) {
@@ -145,19 +229,19 @@ export class SurfaceView {
   }
 
   selectPiece(piece) {
-    const pe = document.getElementById(piece['id']);
+    const pe = document.getElementById(piece.id);
     pe.parentNode.appendChild(pe);
     // TODO: outline should be constant width, not scaled?
     pe.style.outline = '2px solid black';
   }
 
   deselectPiece(piece) {
-    const pe = document.getElementById(piece['id']);
+    const pe = document.getElementById(piece.id);
     pe.style.outline = null;
   }
 
   pieceIdFor(e) {
-    return e.target.id;
+    return e.target.parentNode.id;
   }
 
   translate(dx, dy) {
