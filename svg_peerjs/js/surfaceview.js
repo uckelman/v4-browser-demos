@@ -55,14 +55,18 @@ function createImageAssetSVG(id, img_url) {
       const svg = doc.querySelector('svg');
 
       // fix up relative hrefs
-      // TODO: also modify regular href?
+      // TODO: also modify regular href? probably need to handle both
       [].slice.call(svg.querySelectorAll("[*|href]"))
-        .filter(e => !e.getAttribute('xlink:href').startsWith('#'))
+        .filter(
+            e => !e.getAttribute('xlink:href').startsWith('#') &&
+                 !e.getAttribute('xlink:href').startsWith('data:')
+        )
         .forEach(e => e.setAttributeNS(
           XLINKNS,
           'xlink:href',
           base_url + '/' + e.getAttribute('xlink:href')
-        ));
+        )
+      );
 
       symbol.setAttribute('width', svg.getAttribute('width'));
       symbol.setAttribute('height', svg.getAttribute('height'));
